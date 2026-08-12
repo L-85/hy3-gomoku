@@ -1,0 +1,16 @@
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 本地密钥（切勿提交真实 Key）
+*.local.js
+.env
+.env.*
+settings.local.json
+
+# 依赖与构建（本项目为零依赖纯静态）
+node_modules/
+dist/

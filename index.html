@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>五子棋 · Hy3</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ============ 菜单（干净居中卡片） ============ -->
+  <main id="menu" class="screen">
+    <div class="menu-card">
+      <h1 class="game-title">五子棋</h1>
+      <p class="subtitle">由 腾讯混元 <b>Hy3</b> 驱动 · 黑白纵横，落子成韵</p>
+
+      <div class="mode-buttons">
+        <button class="mode-btn" data-mode="person">
+          <span class="seal">对</span><span class="mode-label">双人对战</span>
+        </button>
+        <button class="mode-btn" data-mode="bot">
+          <span class="seal">弈</span><span class="mode-label">人机对战</span>
+        </button>
+        <button class="mode-btn" data-mode="challenge">
+          <span class="seal">残</span><span class="mode-label">残局挑战</span>
+        </button>
+      </div>
+
+      <p class="mode-hint" id="modeHint">选择一种模式开始对弈</p>
+
+      <div class="menu-footer">
+        <button id="recordsBtn" class="link-btn">对弈记录</button>
+        <button id="settingsBtnMenu" class="link-btn">设置</button>
+      </div>
+    </div>
+    <p class="foot-note">黑白交替，五子连珠即胜 · 方寸棋枰，自有天地</p>
+  </main>
+
+  <!-- ============ 游戏（左棋盘 + 右操作栏） ============ -->
+  <main id="game" class="screen hidden">
+    <div class="game-body">
+      <canvas id="board" class="board"></canvas>
+
+      <aside class="side">
+        <!-- 头部：返回 + 标题 + 轮次 -->
+        <div class="game-head">
+          <button id="backBtn" class="top-btn">← 菜单</button>
+          <span id="gameTitle" class="game-title-sm">人机对战</span>
+          <span id="turnBadge" class="turn-badge your">轮到你</span>
+        </div>
+
+        <!-- 残局信息 -->
+        <div id="challengeInfo" class="ch-info hidden">
+          <div class="ch-name" id="chName"></div>
+          <div class="ch-desc" id="chDesc"></div>
+          <div class="ch-meter">
+            <span>剩余步数</span>
+            <b id="chMovesLeft">0</b>
+          </div>
+          <button id="chHintBtn" class="tool-btn sm">看提示</button>
+        </div>
+
+        <!-- 操作 -->
+        <div class="controls">
+          <button id="undoBtn" class="tool-btn" disabled>悔棋</button>
+          <button id="restartBtn" class="tool-btn primary">重新开始</button>
+          <button id="surrenderBtn" class="tool-btn">认输</button>
+        </div>
+
+        <!-- 统计 -->
+        <div class="stats" id="statsPanel">
+          <div><span>手数</span><b id="moveCount">0</b></div>
+          <div><span>用时</span><b id="gameTime">00:00</b></div>
+        </div>
+
+        <!-- 诗句（水墨风） -->
+        <div class="poem" id="poem"></div>
+
+        <p class="side-tip" id="sideTip">点击棋盘落子</p>
+      </aside>
+    </div>
+
+    <!-- Hy3 思考面板（底部横条，常驻预留空间，避免思考时棋盘上下跳动） -->
+    <div id="thinkPanel" class="think-bar idle">
+      <div class="think-bar-head">
+        <span class="think-label"><i class="ink-dot"></i>Hy3 正在思考…</span>
+        <span id="thinkTimer" class="think-timer"></span>
+      </div>
+      <details id="reasoningBox" class="reasoning-bar">
+        <summary>推理过程（reasoning_content）</summary>
+        <pre id="reasoningText"></pre>
+      </details>
+      <div class="think-idle" id="thinkIdleText">Hy3 待命中 · 落子后此处显示其思考过程</div>
+    </div>
+  </main>
+
+  <!-- ============ 人机对战设置（难度 + 先后手） ============ -->
+  <div id="botSetupModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>人机对战</h2>
+      <p class="hint">选择 AI 难度和先后手，然后开始对弈。</p>
+
+      <div class="field">
+        <label>AI 难度</label>
+        <div class="seg full" id="diffSeg">
+          <button data-diff="easy">初级</button>
+          <button data-diff="medium" class="active">中级</button>
+          <button data-diff="hard">高级</button>
+        </div>
+      </div>
+
+      <div class="firstpick-row">
+        <button id="pickBlack" class="firstpick-btn">
+          <b>执黑先手</b><span>你先落子</span>
+        </button>
+        <button id="pickWhite" class="firstpick-btn">
+          <b>执白后手</b><span>Hy3 先走天元</span>
+        </button>
+      </div>
+
+      <div class="modal-actions">
+        <button id="closeBotSetup" class="ghost-btn">返回</button>
+        <button id="confirmBotStart" class="primary-btn">确认开始</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 残局选择 ============ -->
+  <div id="challengeModal" class="modal hidden">
+    <div class="modal-card wide">
+      <h2>残局挑战 · 八关</h2>
+      <p class="hint">你执白，在限定步数内连成五子取胜。每关 Hy3 自动拦截。</p>
+      <div id="challengeGrid" class="ch-grid"></div>
+      <div class="modal-actions">
+        <button id="closeChallenge" class="ghost-btn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 对弈记录 ============ -->
+  <div id="recordsModal" class="modal hidden">
+    <div class="modal-card wide">
+      <h2>对弈记录</h2>
+      <div id="recordsList" class="records-list"></div>
+      <div class="modal-actions">
+        <button id="clearRecords" class="ghost-btn">清空记录</button>
+        <button id="closeRecords" class="ghost-btn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 设置 ============ -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>设置</h2>
+      <p class="hint">
+        API Key 只存浏览器本地，不上传。留空则用「本地 AI」（内置评分引擎），无需联网即可对弈。
+      </p>
+      <div class="field">
+        <label>接入方</label>
+        <select id="provider">
+          <option value="siliconflow">SiliconFlow</option>
+          <option value="novita">Novita</option>
+          <option value="custom">自定义</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Base URL</label>
+        <input id="baseUrl" type="text" placeholder="https://api.siliconflow.com/v1" />
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <input id="model" type="text" placeholder="tencent/Hy3" />
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-... （留空=本地 AI）" />
+      </div>
+      <div class="modal-actions">
+        <button id="saveSettings" class="primary-btn">保存</button>
+        <button id="closeSettings" class="ghost-btn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 结果 ============ -->
+  <div id="resultModal" class="modal hidden">
+    <div class="modal-card result-card">
+      <h2 id="resultTitle"></h2>
+      <p id="resultDesc"></p>
+      <div id="resultReasoning" class="result-reasoning hidden">
+        <details open>
+          <summary>Hy3 的复盘分析</summary>
+          <pre></pre>
+        </details>
+      </div>
+      <div class="modal-actions">
+        <button id="playAgainBtn" class="primary-btn">再来一局</button>
+        <button id="backMenuBtn" class="ghost-btn">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="challenges.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
