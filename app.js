@@ -10,6 +10,8 @@
   var WIN = 5;
 
   var PROVIDERS = {
+    localproxy:  { base: "http://127.0.0.1:9000/v1", model: "hy3" },
+    tokenhub:    { base: "https://tokenhub.tencentmaas.com/v1", model: "hy3" },
     siliconflow: { base: "https://api.siliconflow.com/v1", model: "tencent/Hy3" },
     novita:      { base: "https://api.novita.ai/openai/v1", model: "tencent/hy3" },
     custom:      { base: "", model: "" },
@@ -48,6 +50,7 @@
   var gameOver = false;
   var aiThinking = false;
   var settings = loadSettings();
+  if (!settings.provider) settings.provider = "localproxy";
 
   var challengeIdx = -1;
   var movesLeft = 0;
@@ -498,12 +501,14 @@
     var oppName = color === WHITE ? "黑(●)" : "白(○)";
     var myName = color === WHITE ? "白(○)" : "黑(●)";
     var systemPrompt =
-      "你是五子棋 AI，执" + myName + "，对手执" + oppName + "。你刚轮到你落子。" +
-      "分析棋盘，选择最佳落子。规则：15×15，五子连珠获胜。" +
-      "必须输出严格 JSON：{\"row\":0-14,\"col\":0-14,\"reasoning\":\"中文思考过程\"}。" +
-      "只输出 JSON，不要其他文字。row/col 必须是空位。" +
-      "优先级：封堵对方活四/冲四 > 自己连五 > 做活四 > 做活三 > 封堵对方活三。" +
-      "难度提示：" + (diff === "easy" ? "偏保守防守" : diff === "hard" ? "偏积极进攻" : "攻守均衡") + "。";
+      "你是五子棋 AI，执" + myName + "，对手执" + oppName + "，现在轮到你落子。" +
+      "规则：15×15，先连成五子者胜。" +
+      "落子前严格按此顺序决策，不要跳过：(1)对手任意方向是否已有 4 连（活四/冲四）——有则必须封堵其延伸的空位；" +
+      "(2)对手是否有 3 连（活三/眠三）——有则优先封堵其两端延伸点；(3)自己能否一步连五——能就直接连；" +
+      "(4)否则在己方附近做活三/活四，并兼顾封堵对手活三。" +
+      "只输出严格 JSON：{\"row\":0-14,\"col\":0-14,\"reasoning\":\"不超过40字的中文思考，说明你按上面哪一步决策\"}。" +
+      "row/col 必须是空位，越界或已有棋子视为非法。" +
+      "难度：" + (diff === "easy" ? "偏保守防守" : diff === "hard" ? "偏积极进攻" : "攻守均衡") + "。";
 
     var userPrompt =
       "当前棋盘（15×15，0=空 1=白 2=黑）：\n" + boardToStr() +
@@ -516,7 +521,7 @@
     ];
     var base = (settings.baseUrl || "").replace(/\/+$/, "");
     var url = base + "/chat/completions";
-    var body = { model: settings.model, messages: messages, stream: true, temperature: 0.5, max_tokens: 600 };
+    var body = { model: settings.model, messages: messages, stream: true, temperature: 0.4, max_tokens: 320 };
 
     fetch(url, {
       method: "POST",
@@ -529,6 +534,9 @@
     })
     .then(function (reader) {
       var dec = new TextDecoder(), buf = "", content = "", reasoning = "";
+      var box = $("reasoningBox"), txt = $("reasoningText");
+      box.setAttribute("open", "");
+      txt.textContent = "Hy3 正在读取棋盘、规划落子…";
       function step() {
         reader.read().then(function (r) {
           if (r.done) { onHy3Done(content, reasoning); return; }
@@ -542,15 +550,14 @@
             try {
               var j = JSON.parse(data);
               var d = (j.choices && j.choices[0] && j.choices[0].delta) || {};
-              if (d.reasoning_content) {
-                reasoning += d.reasoning_content;
-                $("reasoningText").textContent = reasoning;
-                $("reasoningText").scrollTop = $("reasoningText").scrollHeight;
-                $("reasoningBox").setAttribute("open", "");
-              }
+              if (d.reasoning_content) reasoning += d.reasoning_content;
               if (d.content) content += d.content;
             } catch (e) {}
           }
+          // Hy3（TokenHub）思考链不单独回 reasoning_content，而是直接流式吐在 content 里。
+          // 实时显示 content，长思考期间面板也有文字，不再“空等”。
+          txt.textContent = reasoning || content || "Hy3 思考中…";
+          txt.scrollTop = txt.scrollHeight;
           step();
         }).catch(function (err) { onHy3Error(err.message); });
       }
@@ -562,7 +569,21 @@
   function onHy3Done(content, reasoning) {
     var mv = parseMove(content);
     if (!mv) { onHy3Error("无法解析落子：" + content.slice(0, 80)); return; }
-    doAIMove(mv.row, mv.col, reasoning || "");
+    var reason = reasoning || extractReasoning(content);
+    if (reason) {
+      // 落子后把思考过程显示成干净文本（去掉流式 JSON 外壳）
+      $("reasoningText").textContent = reason;
+      $("reasoningBox").setAttribute("open", "");
+    }
+    doAIMove(mv.row, mv.col, reason || content);
+  }
+  function extractReasoning(text) {
+    var s = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+    try {
+      var o = JSON.parse(s);
+      if (o && typeof o.reasoning === "string" && o.reasoning.trim()) return o.reasoning.trim();
+    } catch (e) {}
+    return "";
   }
   function onHy3Error(msg) {
     aiThinking = false;
@@ -922,7 +943,7 @@
   }
 
   function openSettings() {
-    $("provider").value = settings.provider || "siliconflow";
+    $("provider").value = settings.provider || "localproxy";
     applyDefaults();
     $("baseUrl").value = settings.baseUrl || "";
     $("model").value = settings.model || "";

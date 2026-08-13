@@ -87,7 +87,7 @@
         <span id="thinkTimer" class="think-timer"></span>
       </div>
       <details id="reasoningBox" class="reasoning-bar">
-        <summary>推理过程（reasoning_content）</summary>
+        <summary>推理过程</summary>
         <pre id="reasoningText"></pre>
       </details>
       <div class="think-idle" id="thinkIdleText">Hy3 待命中 · 落子后此处显示其思考过程</div>
@@ -159,18 +159,20 @@
       <div class="field">
         <label>接入方</label>
         <select id="provider">
-          <option value="siliconflow">SiliconFlow</option>
+          <option value="localproxy">本地代理（serve.py）</option>
+          <option value="tokenhub">腾讯云 TokenHub（直连）</option>
+          <option value="siliconflow">SiliconFlow（国际站）</option>
           <option value="novita">Novita</option>
           <option value="custom">自定义</option>
         </select>
       </div>
       <div class="field">
         <label>Base URL</label>
-        <input id="baseUrl" type="text" placeholder="https://api.siliconflow.com/v1" />
+        <input id="baseUrl" type="text" placeholder="https://tokenhub.tencentmaas.com/v1" />
       </div>
       <div class="field">
         <label>Model</label>
-        <input id="model" type="text" placeholder="tencent/Hy3" />
+        <input id="model" type="text" placeholder="hy3" />
       </div>
       <div class="field">
         <label>API Key</label>

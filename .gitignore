@@ -14,3 +14,6 @@ settings.local.json
 # 依赖与构建（本项目为零依赖纯静态）
 node_modules/
 dist/
+
+# 截图工具临时数据
+.edge-tmp/
